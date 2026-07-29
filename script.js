@@ -43,6 +43,11 @@ const counts = {
 function generateId() {
     return 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 }
+
+function isDuplicate(title, excludeId) {
+  const normalized = title.trim().toLowerCase();
+  return tasks.some(t => t.id !== excludeId && t.title.trim().toLowerCase() === normalized);
+}
 function loadTasks() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -318,6 +323,12 @@ taskForm.addEventListener('submit', e => {
         taskTitleInput.classList.add('invalid');
         return;
     }
+
+    if (isDuplicate(title, id)) {
+  titleError.textContent = 'A task with this title already exists.';
+  taskTitleInput.classList.add('invalid');
+  return;
+}
 
     titleError.textContent = '';
     taskTitleInput.classList.remove('invalid');
