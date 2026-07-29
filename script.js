@@ -1,6 +1,7 @@
 const STATUSES = ['waiting', 'progress', 'done'];
 const STORAGE_KEY = 'kanban_tasks';
-
+let searchText = '';
+let priorityValue = 'all';
 let tasks = [];
 
 let pendingDeleteId = null;
@@ -19,6 +20,8 @@ const taskDescInput = document.getElementById('taskDesc');
 const taskPriorityInput = document.getElementById('taskPriority');
 const taskStatusInput = document.getElementById('taskStatus');
 const toast = document.getElementById('toast');
+const searchInput = document.getElementById('searchInput');
+const priorityFilter = document.getElementById('priorityFilter');
 
 const confirmOverlay = document.getElementById('confirmOverlay');
 const confirmMessage = document.getElementById('confirmMessage');
@@ -72,23 +75,33 @@ function saveTasks() {
 }
 
 function render() {
-    STATUSES.forEach(status => {
-        const listEl = lists[status];
-        listEl.textContent = '';
+  const query = searchText.trim().toLowerCase();
 
-        const columnTasks = tasks.filter(t => t.status === status);
-        counts[status].textContent = columnTasks.length;
+  STATUSES.forEach(status => {
+    const listEl = lists[status];
+    listEl.textContent = '';
 
-        if (columnTasks.length === 0) {
-            const emptyText = document.createElement('div');
-            emptyText.className = 'empty-text';
-            emptyText.textContent = 'No tasks here';
-            listEl.appendChild(emptyText);
-            return;
-        }
+    const columnTasks = tasks.filter(t => t.status === status);
+    counts[status].textContent = columnTasks.length;
 
-        columnTasks.forEach(task => listEl.appendChild(createTaskCard(task)));
+    const visibleTasks = columnTasks.filter(t => {
+      const matchPriority = priorityValue === 'all' || t.priority === priorityValue;
+      const matchSearch = !query ||
+        t.title.toLowerCase().includes(query) ||
+        t.description.toLowerCase().includes(query);
+      return matchPriority && matchSearch;
     });
+
+    if (visibleTasks.length === 0) {
+      const emptyText = document.createElement('div');
+      emptyText.className = 'empty-text';
+      emptyText.textContent = columnTasks.length === 0 ? 'No tasks here' : 'No matching tasks';
+      listEl.appendChild(emptyText);
+      return;
+    }
+
+    visibleTasks.forEach(task => listEl.appendChild(createTaskCard(task)));
+  });
 }
 
 function createTaskCard(task) {
@@ -346,6 +359,20 @@ function showToast(message, isError) {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
 }
+
+let searchTimer = null;
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    searchText = searchInput.value;
+    render();
+  }, 150);
+});
+
+priorityFilter.addEventListener('change', () => {
+  priorityValue = priorityFilter.value;
+  render();
+});
 
 tasks = loadTasks();
 render();
