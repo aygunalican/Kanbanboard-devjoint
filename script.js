@@ -7,6 +7,7 @@ let tasks = [
 ];
 
 let pendingDeleteId = null;
+let draggedId = null;
 
 const addTaskBtn = document.getElementById('addTaskBtn');
 const modalOverlay = document.getElementById('modalOverlay');
@@ -111,6 +112,18 @@ function createTaskCard(task) {
   date.textContent = formatDate(task.createdAt);
   card.appendChild(date);
 
+    card.draggable = true;
+
+  card.addEventListener('dragstart', () => {
+    draggedId = task.id;
+    card.classList.add('dragging');
+  });
+
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    draggedId = null;
+  });
+
   return card;
 }
 
@@ -125,6 +138,61 @@ function formatDate(iso) {
   if (isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+
+STATUSES.forEach(status => {
+  const listEl = lists[status];
+
+  listEl.addEventListener('dragover', e => {
+    e.preventDefault();
+    listEl.classList.add('drag-over');
+  });
+
+  listEl.addEventListener('dragleave', () => {
+    listEl.classList.remove('drag-over');
+  });
+
+  listEl.addEventListener('drop', e => {
+    e.preventDefault();
+    listEl.classList.remove('drag-over');
+    if (!draggedId) return;
+    moveTask(draggedId, status);
+  });
+});
+
+function moveTask(id, newStatus) {
+  const task = tasks.find(t => t.id === id);
+  if (!task || task.status === newStatus) return;
+  task.status = newStatus;
+  render();
+}
+
+STATUSES.forEach(status => {
+  const listEl = lists[status];
+
+  listEl.addEventListener('dragover', e => {
+    e.preventDefault();
+    listEl.classList.add('drag-over');
+  });
+
+  listEl.addEventListener('dragleave', () => {
+    listEl.classList.remove('drag-over');
+  });
+
+  listEl.addEventListener('drop', e => {
+    e.preventDefault();
+    listEl.classList.remove('drag-over');
+    if (!draggedId) return;
+    moveTask(draggedId, status);
+  });
+});
+
+function moveTask(id, newStatus) {
+  const task = tasks.find(t => t.id === id);
+  if (!task || task.status === newStatus) return;
+  task.status = newStatus;
+  render();
+}
+
 
 function openConfirm(id) {
   const task = tasks.find(t => t.id === id);
