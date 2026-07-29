@@ -1,11 +1,31 @@
 const STATUSES = ['waiting', 'progress', 'done'];
 
-
 let tasks = [
   { id: 't1', title: 'Design homepage', description: 'Wireframe first', priority: 'medium', status: 'waiting', createdAt: new Date().toISOString() },
   { id: 't2', title: 'Fix login bug', description: '', priority: 'high', status: 'progress', createdAt: new Date().toISOString() },
   { id: 't3', title: 'Write docs', description: 'README update', priority: 'low', status: 'done', createdAt: new Date().toISOString() },
 ];
+
+let pendingDeleteId = null;
+
+const addTaskBtn = document.getElementById('addTaskBtn');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const modalClose = document.getElementById('modalClose');
+const cancelBtn = document.getElementById('cancelBtn');
+const taskForm = document.getElementById('taskForm');
+const taskIdInput = document.getElementById('taskId');
+const taskTitleInput = document.getElementById('taskTitle');
+const titleError = document.getElementById('titleError');
+const taskDescInput = document.getElementById('taskDesc');
+const taskPriorityInput = document.getElementById('taskPriority');
+const taskStatusInput = document.getElementById('taskStatus');
+const toast = document.getElementById('toast');
+
+const confirmOverlay = document.getElementById('confirmOverlay');
+const confirmMessage = document.getElementById('confirmMessage');
+const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
 const lists = {
   waiting: document.getElementById('list-waiting'),
@@ -18,6 +38,10 @@ const counts = {
   progress: document.getElementById('count-progress'),
   done: document.getElementById('count-done'),
 };
+
+function generateId() {
+  return 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+}
 
 function render() {
   STATUSES.forEach(status => {
@@ -44,10 +68,31 @@ function createTaskCard(task) {
   card.className = 'task-card priority-' + task.priority;
   card.dataset.id = task.id;
 
+  const top = document.createElement('div');
+  top.className = 'task-top';
+
   const tag = document.createElement('span');
   tag.className = 'priority-tag ' + task.priority;
   tag.textContent = priorityLabel(task.priority);
-  card.appendChild(tag);
+  top.appendChild(tag);
+
+  const actions = document.createElement('div');
+  actions.className = 'task-actions';
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.textContent = 'Edit';
+  editBtn.addEventListener('click', () => openModal(task.id));
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.addEventListener('click', () => openConfirm(task.id));
+
+  actions.appendChild(editBtn);
+  actions.appendChild(deleteBtn);
+  top.appendChild(actions);
+  card.appendChild(top);
 
   const title = document.createElement('div');
   title.className = 'task-title';
@@ -79,6 +124,130 @@ function formatDate(iso) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function openConfirm(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  pendingDeleteId = id;
+  confirmMessage.textContent = 'Delete "' + task.title + '"?';
+  confirmOverlay.classList.add('open');
+}
+
+function closeConfirm() {
+  pendingDeleteId = null;
+  confirmOverlay.classList.remove('open');
+}
+
+confirmCancelBtn.addEventListener('click', closeConfirm);
+
+confirmDeleteBtn.addEventListener('click', () => {
+  if (!pendingDeleteId) return;
+  tasks = tasks.filter(t => t.id !== pendingDeleteId);
+  render();
+  showToast('Task deleted.');
+  closeConfirm();
+});
+
+confirmOverlay.addEventListener('click', e => {
+  if (e.target === confirmOverlay) closeConfirm();
+});
+
+function openModal(id) {
+  taskForm.reset();
+  titleError.textContent = '';
+  taskTitleInput.classList.remove('invalid');
+
+  if (id) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    modalTitle.textContent = 'Edit Task';
+    taskIdInput.value = task.id;
+    taskTitleInput.value = task.title;
+    taskDescInput.value = task.description;
+    taskPriorityInput.value = task.priority;
+    taskStatusInput.value = task.status;
+  } else {
+    modalTitle.textContent = 'New Task';
+    taskIdInput.value = '';
+    taskPriorityInput.value = 'low';
+    taskStatusInput.value = 'waiting';
+  }
+
+  modalOverlay.classList.add('open');
+  taskTitleInput.focus();
+}
+
+function closeModal() {
+  modalOverlay.classList.remove('open');
+}
+
+addTaskBtn.addEventListener('click', () => openModal(null));
+modalClose.addEventListener('click', closeModal);
+cancelBtn.addEventListener('click', closeModal);
+
+modalOverlay.addEventListener('click', e => {
+  if (e.target === modalOverlay) closeModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (modalOverlay.classList.contains('open')) closeModal();
+    if (confirmOverlay.classList.contains('open')) closeConfirm();
+  }
+});
+
+taskForm.addEventListener('submit', e => {
+  e.preventDefault();
+
+  const title = taskTitleInput.value.trim();
+  const id = taskIdInput.value || null;
+
+  if (!title) {
+    titleError.textContent = 'Title cannot be empty.';
+    taskTitleInput.classList.add('invalid');
+    return;
+  }
+
+  titleError.textContent = '';
+  taskTitleInput.classList.remove('invalid');
+
+  const description = taskDescInput.value.trim();
+  const priority = taskPriorityInput.value;
+  const status = taskStatusInput.value;
+
+  if (id) {
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+      task.title = title;
+      task.description = description;
+      task.priority = priority;
+      task.status = status;
+    }
+    showToast('Task updated.');
+  } else {
+    tasks.push({
+      id: generateId(),
+      title,
+      description,
+      priority,
+      status,
+      createdAt: new Date().toISOString(),
+    });
+    showToast('Task added.');
+  }
+
+  render();
+  closeModal();
+});
+
+let toastTimer = null;
+function showToast(message, isError) {
+  toast.textContent = message;
+  toast.classList.toggle('error', !!isError);
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
 render();
